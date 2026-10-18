@@ -1,0 +1,12 @@
+{
+  "name": "sever",
+  "private": true,
+  "packageManager": "pnpm@10.33.3",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm --filter web lint",
+    "test": "cargo test --manifest-path crates/extract/Cargo.toml && pnpm --filter web test",
+    "extract": "cargo run --quiet --manifest-path crates/extract/Cargo.toml -- corpus/rustypaste > corpus/extract.json"
+  }
+}

@@ -1,0 +1,12 @@
+# FalkorDB for Sever. The app creates the schema and loads rustypaste v0.18.0.
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    ports:
+      - "6379:6379"
+      - "3000:3000"
+    volumes:
+      - falkordb-data:/var/lib/falkordb/data
+
+volumes:
+  falkordb-data:

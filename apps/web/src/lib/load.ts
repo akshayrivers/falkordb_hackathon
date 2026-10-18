@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import bundledExtract from "@/lib/rustypaste.json";
 import type { GraphSession } from "@/lib/graph";
 import type { Corpus } from "@/lib/model";
 import { RENAME_ID, SANITIZER_ID, SINK_ID, UPLOAD_ID } from "@/lib/model";
@@ -21,9 +22,15 @@ const ADVISORY_TITLE =
   "Path traversal via the filename header bypasses the upload-directory sandbox";
 
 export async function readCorpus(): Promise<Corpus> {
-  const file = path.join(repoRoot(), "corpus", "extract.json");
-  const raw = await readFile(file, "utf8");
-  return JSON.parse(raw) as Corpus;
+  try {
+    const file = path.join(repoRoot(), "corpus", "extract.json");
+    const raw = await readFile(file, "utf8");
+    return JSON.parse(raw) as Corpus;
+  } catch (error) {
+    const missing = error instanceof Error && "code" in error && error.code === "ENOENT";
+    if (!missing) throw error;
+    return bundledExtract as Corpus;
+  }
 }
 
 export async function loadCallGraph(graph: GraphSession, corpus: Corpus): Promise<void> {

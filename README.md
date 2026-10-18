@@ -9,6 +9,21 @@ One advisory is not one answer. For rustypaste `v0.18.0`, issue 622 is four fact
 
 The direct walk from `upload` to `set_file_name` is 2 hops. The remote-file walk is 3. Order 41 is the call's place in the body, not a hop count. The default depth is 3, which is enough for both walks.
 
+```mermaid
+flowchart LR
+  flag["ConfigFlag<br/>server.auth_tokens"] -->|ENABLES| upload["Function<br/>upload"]
+  upload -->|CALLS| storeFile["Function<br/>Paste::store_file"]
+  upload -->|CALLS| remote["Function<br/>store_remote_file"]
+  remote -->|CALLS| storeFile
+  storeFile -->|"CALLS order 28"| guard["Function<br/>safe_path_join"]
+  storeFile -->|"CALLS order 41<br/>inside header"| rename["External<br/>set_file_name"]
+  advisory["Advisory<br/>issue-622"] -->|SINKS| storeFile
+  advisory -->|SANITIZES| guard
+  build["Build<br/>docker.yml"] -->|SHIPS| storeFile
+  step["Step"] -->|FOUND| storeFile
+  step -->|DECIDED| storeFile
+```
+
 The repo menu starts on rustypaste. A GitHub, GitLab, or Codeberg link can be the repository, a folder, or one source file. Rust crates still use the syn extractor. Python, JavaScript, TypeScript, Go, Java, and the other parsed languages get a call graph from their function definitions. A local absolute path, and Add Sever extractor, stay for testing on this machine. Those graphs do not get the issue 622 verdict.
 
 ## Setup
@@ -22,6 +37,24 @@ pnpm dev
 ```
 
 Open [http://127.0.0.1:4317](http://127.0.0.1:4317). The first survey loads the extract into the `sever` graph. FalkorDB listens on port 6379. Its own browser listens on port 3000 and is not this app. Redis has no password. A `WRONGPASS` line in that browser is its generated session secret, not the Sever client.
+
+## Live deployment
+
+The Next.js app deploys on Vercel. The Vercel project root is `apps/web`. FalkorDB stays a separate instance: local Docker for the setup above, or FalkorDB Cloud for the public URL.
+
+On Vercel, set these environment variables from the Cloud instance Connectivity and Instance Details tabs, then redeploy:
+
+```
+FALKORDB_HOST=
+FALKORDB_PORT=
+FALKORDB_USERNAME=falkordb
+FALKORDB_PASSWORD=
+GEMINI_API_KEY=
+```
+
+Free Cloud instances leave `FALKORDB_TLS` unset. A paid instance with TLS sets `FALKORDB_TLS=true`. `FALKORDB_URL` is optional and uses the form `falkor://falkordb:password@host:port`, or `falkors://` when TLS is on.
+
+The first request loads the pinned rustypaste `v0.18.0` extract, shipped at `apps/web/src/lib/rustypaste.json`, into the `sever` graph. Adding another repository stays a local action: it clones source and runs the extractor on this machine.
 
 Copy `.env.example` to `.env`. Set `GEMINI_API_KEY` if the clerk and the Ask Gemini button should call Gemini Flash. Save the file. The server reads it on each request. Without that key, Investigate still stores the sentence built from the tool payload.
 
@@ -54,7 +87,7 @@ Depth limits the walk from `upload`. Step and Play light the body of `store_file
 
 ## Track
 
-Track 01. Tracks 02 and 03 are not on the form until a second tenant, or author and past-decision hops, are in the video.
+Agents That Act on Connected Data. The agent walks `CALLS`, compares order on the cover query, and writes guard, dismiss, or escalate from that result.
 
 ## Disclosure
 

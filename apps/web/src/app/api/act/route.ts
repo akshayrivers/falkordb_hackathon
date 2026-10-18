@@ -2,6 +2,8 @@ import { GRAPH_NAME } from "@/lib/model";
 import { StrangerNameError } from "@/lib/names";
 import { clampDepth, commitAct, readSurvey } from "@/lib/tools";
 
+export const maxDuration = 60;
+
 type ActBody = {
   decision?: string;
   reasoning?: string;

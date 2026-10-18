@@ -435,7 +435,7 @@ export function Investigation({
           <AlertDescription>
             {error}
             {error.includes("ECONNREFUSED")
-              ? " Start Docker, then run docker compose up in this repo."
+              ? " Locally, start Docker and run docker compose up in this repo. On the deployed app, set FALKORDB_HOST, FALKORDB_PORT, FALKORDB_USERNAME, and FALKORDB_PASSWORD to the FalkorDB Cloud instance."
               : ""}
           </AlertDescription>
         </Alert>

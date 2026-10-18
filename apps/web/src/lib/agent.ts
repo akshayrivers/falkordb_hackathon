@@ -135,7 +135,7 @@ async function investigateNode(
         coveredId = covered.id;
         coveredDetail = `${covered.qual} safe_path_join line ${covered.guardLine}`;
       }
-      if (!uncoveredOpen && state.intent !== "walkthrough") skipped.push("act");
+      if (!uncoveredOpen) skipped.push("act");
     } else {
       skipped.push("cover", "act");
     }

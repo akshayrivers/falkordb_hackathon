@@ -6,6 +6,8 @@ import { listCases } from "@/lib/cases";
 import type { Survey } from "@/lib/model";
 import { clampDepth, hiddenSurvey } from "@/lib/tools";
 
+export const maxDuration = 60;
+
 export default function Home({
   searchParams,
 }: {

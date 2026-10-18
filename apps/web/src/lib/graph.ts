@@ -18,10 +18,27 @@ export type GraphSession = {
 let shared: Promise<FalkorDB> | null = null;
 
 export function falkorOptions() {
+  const url = envValue("FALKORDB_URL");
+  const username = envValue("FALKORDB_USERNAME");
+  const password = envValue("FALKORDB_PASSWORD");
+  const tls = envValue("FALKORDB_TLS") === "true" || envValue("FALKORDB_TLS") === "1";
+  const auth = {
+    ...(username ? { username } : {}),
+    ...(password ? { password } : {}),
+  };
+  if (url) {
+    return {
+      url,
+      ...auth,
+      ...(tls ? { socket: { tls: true as const } } : {}),
+    };
+  }
   return {
+    ...auth,
     socket: {
       host: envValue("FALKORDB_HOST") ?? "127.0.0.1",
       port: Number(envValue("FALKORDB_PORT") ?? 6379),
+      ...(tls ? { tls: true as const } : {}),
     },
   };
 }
@@ -67,6 +84,11 @@ export async function openGraph(name: string): Promise<GraphSession> {
 }
 
 export async function useGraph(name: string): Promise<GraphSession> {
-  shared ??= FalkorDB.connect(falkorOptions());
-  return bind(await shared, name, false);
+  try {
+    shared ??= FalkorDB.connect(falkorOptions());
+    return bind(await shared, name, false);
+  } catch (error) {
+    shared = null;
+    throw error;
+  }
 }

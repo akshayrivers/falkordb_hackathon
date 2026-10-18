@@ -1,5 +1,7 @@
 import { GRAPH_NAME, INTENTS } from "@/lib/model";
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   let body: { intent?: string; depth?: number };
   try {

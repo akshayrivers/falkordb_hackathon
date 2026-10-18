@@ -1,5 +1,7 @@
 import { clampDepth, hiddenSurvey } from "@/lib/tools";
 
+export const maxDuration = 60;
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const depth = clampDepth(Number(url.searchParams.get("depth") ?? "3"));

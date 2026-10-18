@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises";
 import { setDefaultResultOrder } from "node:dns";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -54,9 +55,20 @@ export async function connectFalkor() {
     host: options.host,
     port: options.port,
     family: 4 as const,
-    connectTimeout: 10000,
+    connectTimeout: 8000,
   };
-  return FalkorDB.connect({ ...options, socket });
+  try {
+    return await FalkorDB.connect({ ...options, socket });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    let address = "unresolved";
+    try {
+      address = (await lookup(options.host, { family: 4 })).address;
+    } catch (lookupError) {
+      address = lookupError instanceof Error ? lookupError.message : "lookup failed";
+    }
+    throw new Error(`${message} (${options.host}:${options.port} -> ${address})`);
+  }
 }
 
 function setting(name: FalkorSetting): string | undefined {

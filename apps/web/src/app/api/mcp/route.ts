@@ -6,6 +6,7 @@ import { GRAPH_NAME } from "@/lib/model";
 import { MCP_TOOLS, callSeverTool, type McpToolName } from "@/lib/mcp";
 
 export const maxDuration = 60;
+export const preferredRegion = "bom1";
 
 const depthField = z.number().int().min(1).max(6).optional();
 

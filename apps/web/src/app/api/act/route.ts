@@ -3,6 +3,7 @@ import { StrangerNameError } from "@/lib/names";
 import { clampDepth, commitAct, readSurvey } from "@/lib/tools";
 
 export const maxDuration = 60;
+export const preferredRegion = "bom1";
 
 type ActBody = {
   decision?: string;

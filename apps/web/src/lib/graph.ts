@@ -1,3 +1,4 @@
+import { setDefaultResultOrder } from "node:dns";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -24,7 +25,7 @@ export function falkorOptions() {
   const endpoint = pasted.host
     ? { host: pasted.host, port: pasted.port ?? portNumber(setting("FALKORDB_PORT")) }
     : endpointFrom(setting("FALKORDB_HOST"), setting("FALKORDB_PORT"));
-  const tls = pasted.tls ?? tlsEnabled(setting("FALKORDB_TLS"));
+  const tls = pasted.tls === true;
   const auth = {
     ...(username ? { username } : {}),
     ...(password ? { password } : {}),
@@ -47,22 +48,15 @@ export function falkorOptions() {
 }
 
 export async function connectFalkor() {
-  try {
-    return await FalkorDB.connect(falkorOptions());
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const options = falkorOptions();
-    if (!("tls" in (options.socket ?? {})) || !/timeout/i.test(message)) throw error;
-    return FalkorDB.connect({
-      ...options,
-      socket: {
-        host: options.host,
-        port: options.port,
-        family: 4,
-        connectTimeout: 12000,
-      },
-    });
-  }
+  setDefaultResultOrder("ipv4first");
+  const options = falkorOptions();
+  const socket = {
+    host: options.host,
+    port: options.port,
+    family: 4 as const,
+    connectTimeout: 10000,
+  };
+  return FalkorDB.connect({ ...options, socket });
 }
 
 function setting(name: FalkorSetting): string | undefined {
@@ -115,11 +109,6 @@ function clean(value: string | undefined): string | undefined {
     next = next.slice(1, -1).trim();
   }
   return next || undefined;
-}
-
-function tlsEnabled(value: string | undefined): boolean {
-  const flag = value?.toLowerCase();
-  return flag === "true" || flag === "1" || flag === "yes";
 }
 
 function parseFalkorUrl(value: string | undefined): {

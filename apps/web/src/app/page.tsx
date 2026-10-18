@@ -7,6 +7,7 @@ import type { Survey } from "@/lib/model";
 import { clampDepth, hiddenSurvey } from "@/lib/tools";
 
 export const maxDuration = 60;
+export const preferredRegion = "bom1";
 
 export default function Home({
   searchParams,

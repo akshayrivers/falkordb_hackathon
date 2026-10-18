@@ -1,6 +1,7 @@
 import { clampDepth, hiddenSurvey } from "@/lib/tools";
 
 export const maxDuration = 60;
+export const preferredRegion = "bom1";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);

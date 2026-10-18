@@ -18,27 +18,19 @@ export type GraphSession = {
 let shared: Promise<FalkorDB> | null = null;
 
 export function falkorOptions() {
-  const url = setting("FALKORDB_URL");
-  const username = setting("FALKORDB_USERNAME");
-  const password = setting("FALKORDB_PASSWORD");
-  const tls = tlsEnabled(setting("FALKORDB_TLS"));
-  const endpoint = endpointFrom(setting("FALKORDB_HOST"), setting("FALKORDB_PORT"));
+  const pasted = parseFalkorUrl(setting("FALKORDB_URL") || setting("FALKORDB_HOST"));
+  const username = pasted.username || setting("FALKORDB_USERNAME");
+  const password = pasted.password || setting("FALKORDB_PASSWORD");
+  const endpoint = pasted.host
+    ? { host: pasted.host, port: pasted.port ?? portNumber(setting("FALKORDB_PORT")) }
+    : endpointFrom(setting("FALKORDB_HOST"), setting("FALKORDB_PORT"));
+  const tls = pasted.tls ?? tlsEnabled(setting("FALKORDB_TLS"));
   const auth = {
     ...(username ? { username } : {}),
     ...(password ? { password } : {}),
   };
-  if (!url && !endpoint.host) {
+  if (!endpoint.host) {
     throw new Error("FALKORDB_HOST is empty on this deployment. Set it in Vercel, then redeploy.");
-  }
-  if (url) {
-    return {
-      url,
-      ...auth,
-      socket: {
-        connectTimeout: 8000,
-        ...(tls ? { tls: true as const } : {}),
-      },
-    };
   }
   return {
     ...auth,
@@ -47,10 +39,30 @@ export function falkorOptions() {
     socket: {
       host: endpoint.host,
       port: endpoint.port,
-      connectTimeout: 8000,
+      family: 4 as const,
+      connectTimeout: 12000,
       ...(tls ? { tls: true as const } : {}),
     },
   };
+}
+
+export async function connectFalkor() {
+  try {
+    return await FalkorDB.connect(falkorOptions());
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const options = falkorOptions();
+    if (!("tls" in (options.socket ?? {})) || !/timeout/i.test(message)) throw error;
+    return FalkorDB.connect({
+      ...options,
+      socket: {
+        host: options.host,
+        port: options.port,
+        family: 4,
+        connectTimeout: 12000,
+      },
+    });
+  }
 }
 
 function setting(name: FalkorSetting): string | undefined {
@@ -110,6 +122,40 @@ function tlsEnabled(value: string | undefined): boolean {
   return flag === "true" || flag === "1" || flag === "yes";
 }
 
+function parseFalkorUrl(value: string | undefined): {
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  tls?: boolean;
+} {
+  if (!value || !value.includes("://")) return {};
+  const tls = value.startsWith("falkors://") || value.startsWith("rediss://");
+  const plain = value.startsWith("falkor://") || value.startsWith("redis://");
+  const normalized = value
+    .replace(/^falkors:\/\//, "https://")
+    .replace(/^falkor:\/\//, "http://")
+    .replace(/^rediss:\/\//, "https://")
+    .replace(/^redis:\/\//, "http://");
+  try {
+    const url = new URL(normalized);
+    return {
+      host: url.hostname || undefined,
+      port: url.port ? Number(url.port) : undefined,
+      username: decodeURIComponent(url.username || "") || undefined,
+      password: decodeURIComponent(url.password || "") || undefined,
+      tls: plain ? false : tls ? true : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function portNumber(value: string | undefined): number {
+  const port = Number(value);
+  return Number.isFinite(port) && port > 0 ? port : 6379;
+}
+
 function endpointFrom(hostValue: string | undefined, portValue: string | undefined): { host: string; port: number } {
   let host = hostValue ?? "";
   let port = Number(portValue);
@@ -144,13 +190,13 @@ function bind(db: FalkorDB, name: string, ownsClient: boolean): GraphSession {
 }
 
 export async function openGraph(name: string): Promise<GraphSession> {
-  const db = await FalkorDB.connect(falkorOptions());
+  const db = await connectFalkor();
   return bind(db, name, true);
 }
 
 export async function useGraph(name: string): Promise<GraphSession> {
   try {
-    shared ??= FalkorDB.connect(falkorOptions());
+    shared ??= connectFalkor();
     return bind(await shared, name, false);
   } catch (error) {
     shared = null;

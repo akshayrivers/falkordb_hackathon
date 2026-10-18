@@ -18,34 +18,66 @@ export type GraphSession = {
 let shared: Promise<FalkorDB> | null = null;
 
 export function falkorOptions() {
-  const url = envValue("FALKORDB_URL");
-  const username = envValue("FALKORDB_USERNAME");
-  const password = envValue("FALKORDB_PASSWORD");
-  const tls = envValue("FALKORDB_TLS") === "true" || envValue("FALKORDB_TLS") === "1";
+  const url = setting("FALKORDB_URL");
+  const username = setting("FALKORDB_USERNAME");
+  const password = setting("FALKORDB_PASSWORD");
+  const tls = tlsEnabled(setting("FALKORDB_TLS"));
+  const endpoint = endpointFrom(setting("FALKORDB_HOST"), setting("FALKORDB_PORT"));
   const auth = {
     ...(username ? { username } : {}),
     ...(password ? { password } : {}),
   };
+  if (!url && !endpoint.host) {
+    throw new Error("FALKORDB_HOST is empty on this deployment. Set it in Vercel, then redeploy.");
+  }
   if (url) {
     return {
       url,
       ...auth,
-      ...(tls ? { socket: { tls: true as const } } : {}),
+      socket: {
+        connectTimeout: 8000,
+        ...(tls ? { tls: true as const } : {}),
+      },
     };
   }
   return {
     ...auth,
+    host: endpoint.host,
+    port: endpoint.port,
     socket: {
-      host: envValue("FALKORDB_HOST") ?? "127.0.0.1",
-      port: Number(envValue("FALKORDB_PORT") ?? 6379),
+      host: endpoint.host,
+      port: endpoint.port,
+      connectTimeout: 8000,
       ...(tls ? { tls: true as const } : {}),
     },
   };
 }
 
-function envValue(name: string): string | undefined {
-  const current = process.env[name];
-  if (current) return current;
+function setting(name: FalkorSetting): string | undefined {
+  const fromRuntime = clean(runtimeSetting(name));
+  if (fromRuntime) return fromRuntime;
+  return clean(fileSetting(name));
+}
+
+type FalkorSetting =
+  | "FALKORDB_URL"
+  | "FALKORDB_HOST"
+  | "FALKORDB_PORT"
+  | "FALKORDB_USERNAME"
+  | "FALKORDB_PASSWORD"
+  | "FALKORDB_TLS";
+
+function runtimeSetting(name: FalkorSetting): string | undefined {
+  if (name === "FALKORDB_URL") return process.env.FALKORDB_URL;
+  if (name === "FALKORDB_HOST") return process.env.FALKORDB_HOST;
+  if (name === "FALKORDB_PORT") return process.env.FALKORDB_PORT;
+  if (name === "FALKORDB_USERNAME") return process.env.FALKORDB_USERNAME;
+  if (name === "FALKORDB_PASSWORD") return process.env.FALKORDB_PASSWORD;
+  return process.env.FALKORDB_TLS;
+}
+
+function fileSetting(name: string): string | undefined {
+  if (process.env.VERCEL) return undefined;
   try {
     const file = readFileSync(path.join(repoRoot(), ".env"), "utf8");
     for (const line of file.split("\n")) {
@@ -53,12 +85,45 @@ function envValue(name: string): string | undefined {
       if (!trimmed || trimmed.startsWith("#")) continue;
       const split = trimmed.indexOf("=");
       if (split < 0 || trimmed.slice(0, split) !== name) continue;
-      return trimmed.slice(split + 1).trim();
+      return trimmed.slice(split + 1);
     }
   } catch {
     return undefined;
   }
   return undefined;
+}
+
+function clean(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  let next = value.trim();
+  if (
+    (next.startsWith('"') && next.endsWith('"')) ||
+    (next.startsWith("'") && next.endsWith("'"))
+  ) {
+    next = next.slice(1, -1).trim();
+  }
+  return next || undefined;
+}
+
+function tlsEnabled(value: string | undefined): boolean {
+  const flag = value?.toLowerCase();
+  return flag === "true" || flag === "1" || flag === "yes";
+}
+
+function endpointFrom(hostValue: string | undefined, portValue: string | undefined): { host: string; port: number } {
+  let host = hostValue ?? "";
+  let port = Number(portValue);
+  const slash = host.indexOf("://");
+  if (slash >= 0) host = host.slice(slash + 3);
+  host = host.replace(/\/.*$/, "");
+  const colon = host.lastIndexOf(":");
+  if (colon > 0 && /^\d+$/.test(host.slice(colon + 1))) {
+    port = Number(host.slice(colon + 1));
+    host = host.slice(0, colon);
+  }
+  if (!host && !process.env.VERCEL) host = "127.0.0.1";
+  if (!Number.isFinite(port) || port <= 0) port = 6379;
+  return { host, port };
 }
 
 function bind(db: FalkorDB, name: string, ownsClient: boolean): GraphSession {

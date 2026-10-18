@@ -17,5 +17,7 @@ yarn-error.log*
 data/
 agent-tools/
 uploads/
+sever-demo.mp4
+sever-demo-take1.mp4
 corpus/
 target/

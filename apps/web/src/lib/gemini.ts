@@ -76,10 +76,21 @@ async function postGemini(
 }
 
 function envValue(name: string): string | undefined {
-  const current = process.env[name];
+  const current = cleanRuntime(name);
   if (current) return current;
   const file = readEnvFile();
   return file.get(name);
+}
+
+function cleanRuntime(name: string): string | undefined {
+  const value =
+    name === "GEMINI_API_KEY"
+      ? process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+      : name === "GEMINI_MODEL"
+        ? process.env.GEMINI_MODEL
+        : undefined;
+  const trimmed = value?.trim();
+  return trimmed || undefined;
 }
 
 function readEnvFile(): Map<string, string> {
